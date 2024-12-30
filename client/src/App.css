@@ -1,0 +1,11 @@
+body {
+  background-color: #3f3f46;
+}
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+#root {
+  overflow: hidden;
+}
