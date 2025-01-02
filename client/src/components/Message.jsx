@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { IoIosArrowDown } from "react-icons/io";
 import { setReply } from "@/store/messageSlice";
@@ -7,6 +7,7 @@ import { axiosFetch } from "@/lib/axiosFetch";
 import { constants } from "@/lib/constants";
 import toast from "react-hot-toast";
 import { FaFilePdf } from "react-icons/fa";
+import socketContext from "@/lib/socketContext";
 
 const Message = ({ messageInfo, chatDetails }) => {
   const { senderId, photoURL, content, name, replyTo, attachment } =
@@ -17,7 +18,11 @@ const Message = ({ messageInfo, chatDetails }) => {
   const [isMyMessage, setIsMyMessage] = useState(false);
   const [showArrow, setShowArrow] = useState(false);
   const [showModal, setShowModal] = useState(false);
+
   const user = useSelector((store) => store.user);
+  const activeChatId = useSelector((store) => store.app.activeChatId);
+
+  const { socket } = useContext(socketContext);
 
   useEffect(() => {
     if (senderId == user._id) {
@@ -37,25 +42,14 @@ const Message = ({ messageInfo, chatDetails }) => {
   const handleDeleteMessage = async () => {
     try {
       await axiosFetch.delete(constants.DELETE_MESSAGE + `/${messageInfo._id}`);
+
+      socket.emit("delete_message", messageInfo._id, activeChatId);
+
       toast.success("Message deleted");
     } catch (err) {
       toast.error(err?.response?.data?.msg);
     }
   };
-
-  // const handleDownloadFile = () => {
-  //   if (!attachment?.url) return;
-
-  //   const fileUrl = `${attachment.url}?fl_attachment`; // Add Cloudinary attachment flag
-  //   const fileName = attachment.name || "download";
-
-  //   const link = document.createElement("a");
-  //   link.href = fileUrl;
-  //   link.download = fileName;
-  //   document.body.appendChild(link);
-  //   link.click();
-  //   document.body.removeChild(link);
-  // };
 
   return (
     ((user && content.length > 0) || attachment) && (

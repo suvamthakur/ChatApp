@@ -14,12 +14,7 @@ import {
 import { useContext, useState } from "react";
 import { MdPersonAddAlt1 } from "react-icons/md";
 import CreateChatModal from "./modals/CreateChatModal";
-import {
-  setActiveChatId,
-  setIsGetChats,
-  setIsImageUpload,
-  setShowCreateChatModal,
-} from "@/store/appSlice";
+import { setIsImageUpload, setShowCreateChatModal } from "@/store/appSlice";
 import { axiosFetch } from "@/lib/axiosFetch";
 import { constants } from "@/lib/constants";
 import toast from "react-hot-toast";
@@ -47,8 +42,8 @@ const ChatController = ({ chatDetails, setIsControllerActive }) => {
   const handleExitGroup = async () => {
     try {
       await axiosFetch.patch(constants.EXIT_CHAT + `/${activeChatId}`);
-      dispatch(setIsGetChats(true));
-      dispatch(setActiveChatId(null));
+      socket.emit("exit_group", activeChatId, currentUser._id);
+
       toast.success("You have left the group");
     } catch (err) {
       toast.error(err?.response?.data?.msg);
@@ -58,8 +53,8 @@ const ChatController = ({ chatDetails, setIsControllerActive }) => {
   const handleDeleteGroup = async () => {
     try {
       await axiosFetch.delete(constants.DELETE_CHAT + `/${activeChatId}`);
-      dispatch(setIsGetChats(true));
-      dispatch(setActiveChatId(null));
+      socket.emit("delete_group", activeChatId);
+
       toast.success("Group deleted successfully");
     } catch (err) {
       toast.error(err?.response?.data?.msg);
@@ -72,9 +67,9 @@ const ChatController = ({ chatDetails, setIsControllerActive }) => {
         userId,
       });
 
-      socket.emit("remove_user", activeChatId, userId);
+      let removedUserId = userId;
+      socket.emit("remove_user", activeChatId, removedUserId);
 
-      dispatch(setIsGetChats(true));
       toast.success("Removed successfully");
     } catch (err) {
       toast.error(err?.response?.data?.msg);

@@ -5,10 +5,11 @@ import ReactDOM from "react-dom";
 import toast from "react-hot-toast";
 import { useDispatch, useSelector } from "react-redux";
 import { IoIosCloseCircleOutline } from "react-icons/io";
-import { setIsGetChats, setShowCreateChatModal } from "@/store/appSlice";
+import { setShowCreateChatModal } from "@/store/appSlice";
 import { IoClose } from "react-icons/io5";
 import { FaEdit } from "react-icons/fa";
 import socketContext from "@/lib/socketContext";
+import { addSingleChat } from "@/store/chatSlice";
 
 const CreateChatModal = ({
   isExistingGroup = false,
@@ -18,9 +19,6 @@ const CreateChatModal = ({
   currentChat,
   setShowChatModal,
 }) => {
-  console.log("isExistingGroup: ", isExistingGroup);
-  console.log("isCreateGroup: ", isCreateGroup);
-
   const dispatch = useDispatch();
   const [existingUsers, setExistingUsers] = useState([]); // group
   const [availableUsers, setAvailableUsers] = useState([]); // !group
@@ -76,10 +74,13 @@ const CreateChatModal = ({
   const handleAddUser = async (user) => {
     try {
       const formData = new FormData();
-      formData.append("userIds", JSON.stringify([user._id]));
+      formData.append("users", JSON.stringify([user]));
 
-      await axiosFetch.post(constants.CREATE_CHAT, formData);
-      dispatch(setIsGetChats(true));
+      const chatData = await axiosFetch.post(constants.CREATE_CHAT, formData);
+      dispatch(addSingleChat(chatData?.data?.data));
+
+      socket.emit("create_chat", chatData?.data?.data, [user]);
+
       dispatch(setShowCreateChatModal(false));
       setShowChatModal(false);
       toast.success("User added");
@@ -114,15 +115,9 @@ const CreateChatModal = ({
           error: "Unable to create the group",
         }
       );
+      dispatch(addSingleChat(chatData?.data?.data));
+      socket.emit("create_chat", chatData?.data?.data, selectedUsers);
 
-      socket.emit(
-        "create_chat",
-        chatData.data.data._id,
-        selectedUsers,
-        currentUser._id
-      );
-
-      dispatch(setIsGetChats(true));
       dispatch(setShowCreateChatModal(false));
       setShowChatModal(false);
     } catch (err) {
@@ -132,19 +127,14 @@ const CreateChatModal = ({
   };
 
   const handleAddMemberToGroup = async () => {
-    const userIdList = [];
-    selectedUsers.forEach((user) => {
-      userIdList.push(user._id);
-    });
-
     try {
       await axiosFetch.patch(constants.ADD_USER + `/${currentChat._id}`, {
-        userIdList,
+        users: selectedUsers,
       });
 
-      socket.emit("add_user_to_group", currentChat._id, userIdList);
+      const newUsers = selectedUsers;
+      socket.emit("add_user_to_group", currentChat._id, newUsers);
 
-      dispatch(setIsGetChats(true));
       dispatch(setShowCreateChatModal(false));
       setShowChatModal(false);
     } catch (err) {

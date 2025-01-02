@@ -5,7 +5,9 @@ const uploadOnCloudinary = require("../lib/cloudinary");
 module.exports = {
   getProfile: async function (req, res) {
     try {
-      const user = req.user;
+      const user = req.user.toObject();
+      delete user.password;
+
       if (user) {
         return res.status(200).json({ data: user });
       } else {
@@ -21,7 +23,9 @@ module.exports = {
       const userId = req.user._id;
 
       // Get all profile except the user who requested
-      const allUsers = await User.find({ _id: { $ne: userId } });
+      const allUsers = await User.find({ _id: { $ne: userId } }).select(
+        "-email -password"
+      );
 
       res.status(200).json({ data: allUsers });
     } catch (err) {
@@ -35,20 +39,13 @@ module.exports = {
 
       const chats = await Chat.find({
         userIds: { $in: [userId] },
-      }).populate("userIds lastMessage");
+      })
+        .populate("userIds lastMessage")
+        .select("-userIds");
 
       let chatList = [];
       for (let chat of chats) {
-        let {
-          _id,
-          admin,
-          userIds,
-          isGroup,
-          groupName,
-          groupImage,
-          lastMessage,
-          blockedBy,
-        } = chat;
+        let { userIds, lastMessage } = chat;
 
         const users = [];
         userIds.forEach((user) => {
@@ -56,31 +53,21 @@ module.exports = {
           users.push({ _id, name, photoURL });
         });
 
-        // Change the groupName, groupImage for non-group chat
-        if (!isGroup) {
-          const chatPartner = users.find(
-            (user) => !user._id.equals(req.user._id)
-          );
-          groupName = chatPartner?.name;
-          groupImage = chatPartner?.photoURL;
-        }
-
         // Fetch the name of sender of lastMessage
         const sender = await User.findById(lastMessage?.senderId);
 
+        const chatData = chat.toObject(); // to get plain object
+        delete chatData.userIds;
+
         chatList.push({
-          _id,
-          admin,
-          isGroup,
-          groupName,
-          groupImage,
+          ...chatData,
           users,
           lastMessage: {
+            _id: lastMessage?._id,
             senderName: sender?.name,
             content: lastMessage?.content,
             attachmentUrl: lastMessage?.attachment?.url,
           },
-          blockedBy,
         });
       }
 
@@ -111,7 +98,7 @@ module.exports = {
           photoURL: response.url,
         },
         { new: true }
-      );
+      ).select("-password");
 
       res
         .status(200)

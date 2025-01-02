@@ -24,37 +24,14 @@
 
 # Chat
 - POST /chat/create 
-
->> chat_created<chatId, users> (Api call: GET /user/chats)
-
 - GET /chat/messages/:chatId (After clicking a particular chat) 
-
 - PATCH /chat/add/:chatId (body: userId)
-
->> add_user_to_group<chatId, userIdList> (Api call: GET /user/chats)
-
 - PATCH /chat/remove/:chatId (body: userId)
-
->> remove_user<chatId>[userId,chatId] (Redux: removeUser(userId, chatId))
-
 - PATCH /chat/toggleBlock/:chatId
-
->> user_blocked<chatId>[userId,chatId] (Redux: blockUser(userId, chatId))
->> user_unblocked<chatId>[userId,chatId] (Redux: unblockUser(userId, chatId))
- 
 - PATCH /chat/update/:chatId (formData: groupImage)
-
->> chat_update<chatId> (Api call: GET /user/chats)
-
 - PATCH /chat/exit/:chatId
-
->> user_removed<chatId>[userId,chatId] (Redux: removeUser(userId, chatId))
-
 - DELETE /chat/delete/:chatId
->> delete_chat<chatId>[chatId] (Redux: deleteChat(chatId))
 
 # Message
 - POST /message/:chatId 
->> new_message<chatId>[userId,chatId,message:{content,attachmentUrl,replyTo}] (Redux: setlastChatMessage(userId,chatId,message:{content,attachmentUrl}))
-
 - DELETE /message/:messageId 

@@ -11,8 +11,6 @@ module.exports = {
       const content = req.body.content;
       const replyTo = req.body.replyTo && JSON.parse(req.body.replyTo);
 
-      console.log("replyTo: ", replyTo);
-
       const chatData = await Chat.findById(chatId);
       if (!chatData) {
         throw new Error("Invalid chatId");
@@ -56,9 +54,16 @@ module.exports = {
         lastMessage: message._id,
       });
 
+      const sender = req.user;
+      const messageData = {
+        ...message.toObject(),
+        senderName: sender.name,
+        photoURL: sender.photoURL,
+      };
+
       res
         .status(201)
-        .json({ msg: "Message added successfully", data: message });
+        .json({ msg: "Message added successfully", data: messageData });
     } catch (err) {
       res.status(400).json({ msg: err.message });
     }

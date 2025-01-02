@@ -9,8 +9,19 @@ import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { io } from "socket.io-client";
 import socketContext from "@/lib/socketContext";
-import { setIsGetChats } from "@/store/appSlice";
-import { exitChat, removeUserFromChat } from "@/store/chatSlice";
+import {
+  addMessage,
+  addNewUsersIntoChat,
+  addSingleChat,
+  blockUser,
+  deleteMessage,
+  exitChat,
+  removeUserFromChat,
+  unblockUser,
+  updateChatImage,
+  updateUserInChat,
+} from "@/store/chatSlice";
+import { setActiveChatId, setIsGetChats } from "@/store/appSlice";
 
 const Chat = () => {
   const navigate = useNavigate();
@@ -28,9 +39,7 @@ const Chat = () => {
     }
   }, []);
 
-  // Socket context is at the bottom
   const [socket, setSocket] = useState(null);
-
   // Socket Connection
   useEffect(() => {
     if (user?._id) {
@@ -47,24 +56,65 @@ const Chat = () => {
   useEffect(() => {
     if (socket) {
       // new chat
-      socket.on("chat_created", () => {
-        dispatch(setIsGetChats(true));
+      socket.on("chat_created", (chatData) => {
+        dispatch(addSingleChat(chatData));
       });
 
-      // Added into a group
-      socket.on("added_into_group", () => {
-        dispatch(setIsGetChats(true));
-      });
-
-      // Removed a user
-      socket.on("user_removed", (chatId, userId) => {
-        console.log("remove", chatId, userId);
-        if (userId == user._id) {
-          console.log("remove me: ", chatId);
-          dispatch(exitChat(chatId));
+      // New user Added into a group
+      socket.on("new_user_added", (chatId, newUsers) => {
+        if (newUsers.some((newUser) => newUser._id == user._id)) {
+          dispatch(setIsGetChats(true));
         } else {
-          dispatch(removeUserFromChat({ chatId, userId }));
+          dispatch(addNewUsersIntoChat({ newUsers, chatId }));
         }
+      });
+
+      // Removed a user / exit group
+      socket.on("user_removed", (chatId, removedUserId) => {
+        if (removedUserId == user._id) {
+          dispatch(exitChat(chatId));
+          dispatch(setActiveChatId(null));
+        } else {
+          dispatch(removeUserFromChat({ chatId, removedUserId }));
+        }
+      });
+
+      // User blocked
+      socket.on("user_blocked", (blockedBy, chatId) => {
+        dispatch(blockUser({ blockedBy, chatId }));
+      });
+
+      // User unblocked
+      socket.on("user_unblocked", (chatId) => {
+        dispatch(unblockUser(chatId));
+      });
+
+      // Delete group
+      socket.on("group_deleted", (chatId) => {
+        dispatch(exitChat(chatId));
+        dispatch(setActiveChatId(null));
+      });
+
+      // User image update
+      socket.on("profile_updated", (userData) => {
+        dispatch(updateUserInChat(userData));
+      });
+
+      // Group image update
+      socket.on("chat_updated", (chatData) => {
+        dispatch(updateChatImage(chatData));
+      });
+
+      // New message
+      socket.on("new-message", (message) => {
+        dispatch(addMessage(message));
+      });
+
+      // Delete message
+      socket.on("message_deleted", (messageId, chatId) => {
+        console.log("message deleted");
+        console.log(`mID: ${messageId}, chatID: ${chatId}`);
+        dispatch(deleteMessage({ messageId, chatId }));
       });
     }
 
@@ -72,7 +122,6 @@ const Chat = () => {
       if (socket) {
         socket.off("chat_created");
         socket.off("added_into_group");
-        socket.off("user_removed");
       }
     };
   }, [socket]);

@@ -10,8 +10,10 @@ module.exports = {
       const users = JSON.parse(usersJSON);
 
       // Get admin
-      const adminUserId = req.user._id;
-      const admin = adminUserId;
+      const admin = req.user;
+
+      console.log("user: ", req.user);
+      console.log("otherUser: ", users[0]);
 
       // Filterout Redundant userIds
       const userIdList = new Set();
@@ -19,14 +21,14 @@ module.exports = {
       // Validate userIds And add to the Set
       for (let user of users) {
         const userData = await User.findById(user._id);
-        if (user._id == admin || !userData) {
+        if (user._id == admin._id || !userData) {
           throw new Error("Invalid userIds");
         } else {
           userIdList.add(user._id);
         }
       }
       // Add admin to the userIdlist
-      userIdList.add(admin);
+      userIdList.add(admin._id);
 
       // Only group can have groupName, groupImage
       let groupPhoto = "";
@@ -51,14 +53,28 @@ module.exports = {
       }
 
       const chat = await Chat.create({
-        admin,
+        admin: admin._id,
         userIds: Array.from(userIdList),
         isGroup,
         groupName,
         groupImage: groupPhoto,
       });
 
-      res.status(201).json({ msg: "Chat created", data: chat });
+      //  Add admin and other users
+      const allUsers = [];
+
+      users.forEach((user) => {
+        const { _id, name, photoURL } = user;
+        allUsers.push({ _id, name, photoURL });
+      });
+
+      const { _id, name, photoURL } = admin;
+      allUsers.push({ _id, name, photoURL });
+
+      res.status(201).json({
+        msg: "Chat created",
+        data: { ...chat.toObject(), users: allUsers }, // chat.create() returns addtional metadata and methods
+      });
     } catch (err) {
       res.status(400).json({ msg: err.message });
     }
@@ -173,7 +189,7 @@ module.exports = {
     try {
       const reqUserId = req.user._id;
       const chatId = req.params.chatId;
-      const userIdList = req.body.userIdList;
+      const users = req.body.users;
 
       // Check if chat and userIds exists in DB
       const chatData = await Chat.findById(chatId);
@@ -181,13 +197,13 @@ module.exports = {
         throw new Error("No chat found");
       }
 
-      for (let userId of userIdList) {
-        const user = await User.findById(userId);
+      for (let user of users) {
+        const userData = await User.findById(user._id);
 
-        if (!user || chatData.admin.equals(userId)) {
+        if (!userData || chatData.admin.equals(user._id)) {
           throw new Error("User not found");
         }
-        if (chatData.userIds.includes(userId)) {
+        if (chatData.userIds.includes(user._id)) {
           throw new Error("User already exists");
         }
       }
@@ -197,6 +213,7 @@ module.exports = {
       }
 
       // Push the the userId into the array of userIds
+      const userIdList = users.map((user) => user._id);
       const newChatData = await Chat.findByIdAndUpdate(
         chatId,
         {

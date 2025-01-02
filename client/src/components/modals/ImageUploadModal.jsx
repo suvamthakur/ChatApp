@@ -1,8 +1,9 @@
 import { axiosFetch } from "@/lib/axiosFetch";
 import { constants } from "@/lib/constants";
-import { setIsGetChats, setIsImageUpload } from "@/store/appSlice";
+import socketContext from "@/lib/socketContext";
+import { setIsImageUpload } from "@/store/appSlice";
 import { addUser } from "@/store/userSlice";
-import { useState } from "react";
+import { useContext, useState } from "react";
 import ReactDOM from "react-dom";
 import toast from "react-hot-toast";
 import { FaEdit } from "react-icons/fa";
@@ -17,6 +18,8 @@ const ImageUploadModal = ({
   const dispatch = useDispatch();
   const [preview, setPreview] = useState(image);
   const [selectedImage, setSelectedImage] = useState(null);
+
+  const { socket } = useContext(socketContext);
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
@@ -35,7 +38,7 @@ const ImageUploadModal = ({
       const formData = new FormData();
       formData.append("groupImage", selectedImage);
 
-      await toast.promise(
+      const chatData = await toast.promise(
         axiosFetch.patch(constants.UPDATE_CHAT_IMAGE + `/${chatId}`, formData),
         {
           loading: "Updating group photo",
@@ -43,7 +46,7 @@ const ImageUploadModal = ({
           error: "Unable to upload the image",
         }
       );
-      dispatch(setIsGetChats(true));
+      socket.emit("update_chat", chatData?.data?.data);
     } catch (err) {
       console.log(err);
       toast.error(err?.response?.data?.msg || "Something went wrong");
@@ -67,6 +70,7 @@ const ImageUploadModal = ({
         }
       );
       dispatch(addUser(res?.data?.data));
+      socket.emit("profile_update", res?.data?.data);
     } catch (err) {
       console.log(err);
       toast.error(err?.response?.data?.msg || "Something went wrong");

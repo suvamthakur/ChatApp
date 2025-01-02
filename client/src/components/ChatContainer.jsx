@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import ChatController from "./ChatController";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -18,9 +18,9 @@ import { IoClose } from "react-icons/io5";
 import { deleteReply } from "@/store/messageSlice";
 import { MdBlock } from "react-icons/md";
 import { CgUnblock } from "react-icons/cg";
-import { setActiveChatId, setIsGetChats } from "@/store/appSlice";
 import { GrAttachment } from "react-icons/gr";
 import { FaFilePdf } from "react-icons/fa";
+import socketContext from "@/lib/socketContext";
 
 const ChatContainer = () => {
   const dispatch = useDispatch();
@@ -35,6 +35,8 @@ const ChatContainer = () => {
   const user = useSelector((store) => store.user);
   const chatMessages = useSelector((store) => store.chats.chatMessages);
   const { reply } = useSelector((store) => store.message);
+
+  const { socket } = useContext(socketContext);
 
   const inputFocus = useRef(null);
   useEffect(() => {
@@ -83,10 +85,12 @@ const ChatContainer = () => {
 
       console.log(formData);
 
-      await axiosFetch.post(
+      const message = await axiosFetch.post(
         constants.CREATE_MESSAGE + `/${activeChatId}`,
         formData
       );
+
+      socket.emit("new_message", message?.data?.data);
     } catch {
       toast.error("Something went wrong");
     }
@@ -104,8 +108,8 @@ const ChatContainer = () => {
   const handleExitGroup = async (chatId) => {
     try {
       await axiosFetch.patch(constants.EXIT_CHAT + `/${chatId}`);
-      dispatch(setIsGetChats(true));
-      dispatch(setActiveChatId(null));
+      socket.emit("exit_group", chatId, user._id);
+
       toast.success("You have left the group");
     } catch (err) {
       toast.error(err?.response?.data?.msg);
@@ -115,8 +119,8 @@ const ChatContainer = () => {
   const handleDeleteGroup = async (chatId) => {
     try {
       await axiosFetch.delete(constants.DELETE_CHAT + `/${chatId}`);
-      dispatch(setIsGetChats(true));
-      dispatch(setActiveChatId(null));
+      socket.emit("delete_group", chatId);
+
       toast.success("Group deleted successfully");
     } catch (err) {
       toast.error(err?.response?.data?.msg);
@@ -126,7 +130,10 @@ const ChatContainer = () => {
   const handleBlockUser = async (chatId) => {
     try {
       await axiosFetch.patch(constants.TOGGLE_BLOCK + `/${chatId}`);
-      dispatch(setIsGetChats(true));
+
+      let blockedBy = user._id;
+      socket.emit("block_user", blockedBy, chatId);
+
       toast.success("User has been blocked");
     } catch (err) {
       toast.error(err?.response?.data?.msg);
@@ -136,7 +143,9 @@ const ChatContainer = () => {
   const handleUnblockUser = async (chatId) => {
     try {
       await axiosFetch.patch(constants.TOGGLE_BLOCK + `/${chatId}`);
-      dispatch(setIsGetChats(true));
+
+      socket.emit("unblock_user", chatId);
+
       toast.success("User has been unblocked");
     } catch (err) {
       toast.error(err?.response?.data?.msg);
@@ -162,12 +171,26 @@ const ChatContainer = () => {
             <div className="w-10 h-10 rounded-full">
               <img
                 className="w-full h-full object-cover rounded-full"
-                src={groupImage}
+                src={
+                  isGroup
+                    ? groupImage
+                    : user._id == admin
+                    ? users[0].photoURL
+                    : users[1].photoURL // admin's image
+                }
                 alt=""
               />
             </div>
             <div className="ml-2">
-              <p className="text-zinc-200 font-medium">{groupName}</p>
+              <p className="text-zinc-200 font-medium">
+                {
+                  isGroup
+                    ? groupName
+                    : user._id == admin
+                    ? users[0].name
+                    : users[1].name // admin's name
+                }
+              </p>
               {isGroup && (
                 <div className="text-sm text-zinc-400">
                   {users.map((userDetails) => (

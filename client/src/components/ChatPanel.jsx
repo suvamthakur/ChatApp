@@ -51,7 +51,9 @@ const ChatPanel = ({ showCreateChatModal }) => {
   useEffect(() => {
     setChats(
       allChats.filter((chat) =>
-        chat.groupName.toLowerCase().includes(searchChat.toLowerCase())
+        chat.users.some((user) =>
+          user.name.toLowerCase().includes(searchChat.trim().toLowerCase())
+        )
       )
     );
   }, [searchChat]);
@@ -160,14 +162,31 @@ const ChatPanel = ({ showCreateChatModal }) => {
                 onClick={() => handleChatMessages(chat._id)}
               >
                 <div className="w-12 h-12 rounded-full">
+                  {/* Chat Image */}
                   <img
-                    src={chat.groupImage}
+                    src={
+                      chat.isGroup
+                        ? chat.groupImage
+                        : user._id == chat.admin
+                        ? chat.users[0].photoURL
+                        : chat.users[1].photoURL // admin's photo
+                    }
                     alt=""
                     className="w-full h-full object-cover rounded-full"
                   />
                 </div>
+
                 <div className="ml-2">
-                  <p className="font-medium text-zinc-200">{chat.groupName}</p>
+                  {/* Chat Name */}
+                  <p className="font-medium text-zinc-200">
+                    {
+                      chat.isGroup
+                        ? chat.groupName
+                        : user._id == chat.admin
+                        ? chat.users[0].name
+                        : chat.users[1].name // admin's name
+                    }
+                  </p>
 
                   {chat.lastMessage &&
                     Object.keys(chat.lastMessage).length > 0 && (
